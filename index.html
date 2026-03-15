@@ -43,36 +43,54 @@
             height: 100%;
         }
 
-        #stats {
+        /* ── Top-left panel: stats + mode selector stacked vertically ── */
+        #topLeftPanel {
             position: fixed;
-            top: 2rem;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 1.5rem;
+            left: 1.5rem;
             z-index: 10;
             display: flex;
-            gap: 1.25rem;
+            flex-direction: column;
+            gap: 0.625rem;
+            align-items: flex-start;
+        }
+
+        #stats {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
             background: var(--system-surface);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            padding: 0.75rem 1.5rem;
-            border-radius: 999px;
-            font-size: 0.875rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 16px;
+            font-size: 0.8125rem;
             font-weight: 500;
             border: 1px solid var(--system-border);
             box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+            min-width: 130px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            color: rgba(255,255,255,0.55);
+        }
+
+        .stat-row span {
+            color: var(--system-text);
+            font-weight: 600;
         }
 
         #modeButtons {
-            position: fixed;
-            top: 7rem;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
             display: flex;
+            flex-direction: column;
             background: rgba(118, 118, 128, 0.24);
             padding: 4px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            width: 100%;
         }
 
         .mode-btn {
@@ -80,11 +98,12 @@
             border: none;
             color: var(--system-text);
             opacity: 0.7;
-            padding: 6px 16px;
+            padding: 6px 14px;
             cursor: pointer;
-            font-size: 0.8125rem;
+            font-size: 0.8rem;
             font-weight: 500;
             border-radius: 8px;
+            text-align: left;
             transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
@@ -264,17 +283,18 @@
         <button id="startBtn">START</button>
     </div>
 
-    <div id="stats">
-        <div>Score: <span id="scoreDisplay">0</span></div>
-        <div>Level: <span id="levelDisplay">1</span></div>
-        <div>Health: <span id="healthDisplay">100</span></div>
-    </div>
-
-    <div id="modeButtons">
-        <button class="mode-btn active" data-mode="easy">Easy</button>
-        <button class="mode-btn" data-mode="normal">Normal</button>
-        <button class="mode-btn" data-mode="hard">Hard</button>
-        <button class="mode-btn" data-mode="extreme">Extreme</button>
+    <div id="topLeftPanel">
+        <div id="stats">
+            <div class="stat-row">Score <span id="scoreDisplay">0</span></div>
+            <div class="stat-row">Level <span id="levelDisplay">1</span></div>
+            <div class="stat-row">Health <span id="healthDisplay">100</span></div>
+        </div>
+        <div id="modeButtons">
+            <button class="mode-btn active" data-mode="easy">Easy</button>
+            <button class="mode-btn" data-mode="normal">Normal</button>
+            <button class="mode-btn" data-mode="hard">Hard</button>
+            <button class="mode-btn" data-mode="extreme">Extreme</button>
+        </div>
     </div>
 
     <div id="inputDisplay"></div>
