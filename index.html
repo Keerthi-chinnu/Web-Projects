@@ -308,47 +308,75 @@ function updateInputDisplay() {
 function checkWord() {
     const typed = currentInput.toLowerCase();
     for (let i = enemies.length - 1; i >= 0; i--) {
-        if (enemies[i].word.toLowerCase() === typed) {
-            const enemy = enemies[i];
+        const enemy = enemies[i];
+        // Skip already-targeted enemies
+        if (enemy.targeted) continue;
+        if (enemy.word.toLowerCase() === typed) {
             // Aim barrel
             tankAngle = Math.atan2(enemy.y - tank.y, enemy.x - tank.x);
-            // Fire bullet
-            fireBullet(enemy);
-            score += enemy.isBoss ? 50 : 10;
-            enemies.splice(i, 1);
+            // Mark as targeted so it stops moving and can't be re-targeted
+            enemy.targeted = true;
+            // Fire bullet — bullet will kill enemy on impact
+            fireBullet(enemy, i);
             currentInput = '';
             updateInputDisplay();
-            if (score % 100 === 0) {
-                level++;
-                if (level % 2 === 0 && maxWordLen < 22) maxWordLen += 2;
-                if (level % 5 === 0) createEnemy(true);
-            }
             break;
         }
     }
 }
 
 // ── Bullet ────────────────────────────────────────────────────────────────────
-function fireBullet(target) {
+function fireBullet(target, enemyIdx) {
     const angle = Math.atan2(target.y - tank.y, target.x - tank.x);
-    const speed = 9;
+    const speed = 7;
     bullets.push({
         x: tank.x + Math.cos(angle) * (tank.radius + 6),
         y: tank.y + Math.sin(angle) * (tank.radius + 6),
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        tx: target.x, ty: target.y,
-        life: 60
+        target: target,   // live reference to the enemy object
+        trail: [],
+        life: 120
     });
 }
 
 function updateBullets() {
     for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
+        // Store trail
+        b.trail.push({ x: b.x, y: b.y });
+        if (b.trail.length > 10) b.trail.shift();
+
+        // Chase the live enemy position
+        if (b.target && enemies.includes(b.target)) {
+            const angle = Math.atan2(b.target.y - b.y, b.target.x - b.x);
+            const speed = 7;
+            b.vx = b.vx * 0.8 + Math.cos(angle) * speed * 0.2; // slight homing
+            b.vy = b.vy * 0.8 + Math.sin(angle) * speed * 0.2;
+        }
+
         b.x += b.vx; b.y += b.vy; b.life--;
-        const dx = b.x - b.tx, dy = b.y - b.ty;
-        if (Math.sqrt(dx*dx + dy*dy) < 12 || b.life <= 0) {
-            createExplosion(b.tx, b.ty);
+
+        const tx = b.target ? b.target.x : b.x;
+        const ty = b.target ? b.target.y : b.y;
+        const dx = b.x - tx, dy = b.y - ty;
+
+        if (Math.sqrt(dx*dx + dy*dy) < 14 || b.life <= 0) {
+            // Kill the enemy NOW (on bullet impact)
+            createBombExplosion(tx, ty);
+            if (b.target) {
+                const idx = enemies.indexOf(b.target);
+                if (idx !== -1) {
+                    const enemy = enemies[idx];
+                    score += enemy.isBoss ? 50 : 10;
+                    enemies.splice(idx, 1);
+                    if (score % 100 === 0) {
+                        level++;
+                        if (level % 2 === 0 && maxWordLen < 22) maxWordLen += 2;
+                        if (level % 5 === 0) createEnemy(true);
+                    }
+                }
+            }
             bullets.splice(i, 1);
         }
     }
@@ -356,13 +384,22 @@ function updateBullets() {
 
 function drawBullets() {
     bullets.forEach(b => {
+        // Draw trail
+        b.trail.forEach((pt, idx) => {
+            const a = (idx / b.trail.length) * 0.5;
+            const r = 2 + (idx / b.trail.length) * 2;
+            ctx.save();
+            ctx.globalAlpha = a;
+            ctx.fillStyle = '#FF9F0A';
+            ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        });
+        // Draw bullet
         ctx.save();
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 14;
         ctx.shadowColor = '#FFD60A';
         ctx.fillStyle = '#FFD60A';
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
     });
 }
@@ -415,11 +452,14 @@ function updateEnemies() {
         const e = enemies[i];
         const dx = tank.x - e.x, dy = tank.y - e.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        e.x += (dx / dist) * difficulties[currentMode].speed;
-        e.y += (dy / dist) * difficulties[currentMode].speed;
+        // Targeted enemies freeze — wait for bullet to arrive
+        if (!e.targeted) {
+            e.x += (dx / dist) * difficulties[currentMode].speed;
+            e.y += (dy / dist) * difficulties[currentMode].speed;
+        }
         // Hard clamp: never go below maxY (keyboard area)
         if (e.y > pa.maxY) e.y = pa.maxY;
-        if (dist < tank.radius + 12) {
+        if (!e.targeted && dist < tank.radius + 12) {
             health -= e.isBoss ? 20 : 10;
             enemies.splice(i, 1);
         }
@@ -497,55 +537,145 @@ function drawEnemies() {
         ctx.lineWidth = e.isBoss ? 1.5 : 1;
         ctx.stroke();
 
-        // Text
-        ctx.fillStyle = '#fff';
+        // Text — flash if targeted
+        ctx.fillStyle = e.targeted ? '#FFD60A' : '#fff';
         ctx.fillText(e.word, e.x, e.y);
         ctx.restore();
     });
 }
 
 // ── Explosions ────────────────────────────────────────────────────────────────
-function createExplosion(x, y) {
-    for (let i = 0; i < 28; i++) {
-        const angle = (Math.PI * 2 * i) / 28 + (Math.random() - 0.5) * 0.4;
-        const speed = 1.5 + Math.random() * 4.5;
-        const colors = ['#FFD60A', '#FF9F0A', '#FF453A', '#0A84FF', '#5E5CE6'];
+function createBombExplosion(x, y) {
+    // Phase 1: shockwave rings (expand outward)
+    for (let r = 0; r < 3; r++) {
         explosions.push({
-            x, y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: 35, maxLife: 35,
-            size: 2 + Math.random() * 3.5,
+            type: 'ring', x, y,
+            radius: 4 + r * 8,
+            maxRadius: 55 + r * 22,
+            life: 38 - r * 4, maxLife: 38 - r * 4,
+            color: r === 0 ? '#FFD60A' : r === 1 ? '#FF9F0A' : '#FF453A'
+        });
+    }
+    // Phase 2: big fireball center
+    explosions.push({ type: 'fireball', x, y, life: 45, maxLife: 45, size: 0, maxSize: 38 });
+
+    // Phase 3: debris chunks flying outward
+    for (let i = 0; i < 18; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 2.5 + Math.random() * 5.5;
+        const colors = ['#FFD60A','#FF9F0A','#FF6B35','#FF453A','#FFF'];
+        explosions.push({
+            type: 'debris', x, y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd - 1.5, // slight upward bias
+            gravity: 0.12,
+            life: 40 + Math.random() * 20, maxLife: 60,
+            size: 3 + Math.random() * 5,
             color: colors[Math.floor(Math.random() * colors.length)]
         });
     }
-    // Muzzle flash ring
-    explosions.push({ x, y, vx:0, vy:0, life:8, maxLife:8, size:18, color:'rgba(255,214,10,0.5)', ring:true });
+
+    // Phase 4: smoke puffs rising
+    for (let i = 0; i < 10; i++) {
+        explosions.push({
+            type: 'smoke',
+            x: x + (Math.random() - 0.5) * 20,
+            y: y + (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * 1.2,
+            vy: -(0.5 + Math.random() * 1.5),
+            life: 55 + Math.random() * 30, maxLife: 85,
+            size: 6 + Math.random() * 10
+        });
+    }
+
+    // Phase 5: tiny sparks
+    for (let i = 0; i < 22; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 4 + Math.random() * 7;
+        explosions.push({
+            type: 'spark', x, y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            life: 20 + Math.random() * 15, maxLife: 35,
+            color: Math.random() > 0.5 ? '#FFD60A' : '#FFF'
+        });
+    }
 }
+
+// Keep old name as alias so nothing breaks
+function createExplosion(x, y) { createBombExplosion(x, y); }
 
 function updateExplosions() {
     for (let i = explosions.length - 1; i >= 0; i--) {
         const p = explosions[i];
-        p.x += p.vx; p.y += p.vy; p.life--;
+        p.life--;
+        if (p.type === 'ring') {
+            p.radius += (p.maxRadius - p.radius) * 0.18;
+        } else if (p.type === 'fireball') {
+            // grow then shrink
+            const t = 1 - p.life / p.maxLife;
+            p.size = p.maxSize * Math.sin(t * Math.PI);
+        } else if (p.type === 'debris') {
+            p.x += p.vx; p.y += p.vy;
+            p.vy += p.gravity;
+            p.vx *= 0.97;
+        } else if (p.type === 'smoke') {
+            p.x += p.vx; p.y += p.vy;
+            p.size += 0.35;
+        } else if (p.type === 'spark') {
+            p.x += p.vx; p.y += p.vy;
+            p.vx *= 0.88; p.vy *= 0.88;
+        }
         if (p.life <= 0) explosions.splice(i, 1);
     }
 }
 
 function drawExplosions() {
-    explosions.forEach(p => {
-        const a = p.life / p.maxLife;
-        ctx.save();
-        ctx.globalAlpha = a;
-        if (p.ring) {
-            ctx.strokeStyle = p.color;
-            ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1 - a + 0.2), 0, Math.PI * 2); ctx.stroke();
-        } else {
-            ctx.shadowBlur = 8; ctx.shadowColor = p.color;
-            ctx.fillStyle = p.color;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.restore();
+    // Draw in layers: smoke first (behind), then fireball, debris, rings, sparks on top
+    const order = ['smoke','fireball','ring','debris','spark'];
+    order.forEach(type => {
+        explosions.filter(p => p.type === type).forEach(p => {
+            const a = Math.max(0, p.life / p.maxLife);
+            ctx.save();
+            ctx.globalAlpha = a;
+            if (p.type === 'ring') {
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 3.5 * a;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.stroke();
+            } else if (p.type === 'fireball') {
+                if (p.size > 0) {
+                    const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+                    grd.addColorStop(0,   'rgba(255,255,200,1)');
+                    grd.addColorStop(0.3, 'rgba(255,200,50,0.9)');
+                    grd.addColorStop(0.65,'rgba(255,80,20,0.7)');
+                    grd.addColorStop(1,   'rgba(255,30,10,0)');
+                    ctx.fillStyle = grd;
+                    ctx.shadowBlur = 30; ctx.shadowColor = '#FF9F0A';
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                }
+            } else if (p.type === 'debris') {
+                ctx.shadowBlur = 6; ctx.shadowColor = p.color;
+                ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2); ctx.fill();
+            } else if (p.type === 'smoke') {
+                const sg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+                sg.addColorStop(0,   `rgba(120,120,120,${a * 0.45})`);
+                sg.addColorStop(1,   `rgba(60,60,60,0)`);
+                ctx.fillStyle = sg;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+            } else if (p.type === 'spark') {
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 1.5;
+                ctx.shadowBlur = 5; ctx.shadowColor = p.color;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - p.vx * 3, p.y - p.vy * 3);
+                ctx.stroke();
+            }
+            ctx.restore();
+        });
     });
 }
 
