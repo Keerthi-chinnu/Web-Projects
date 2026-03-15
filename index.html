@@ -94,9 +94,9 @@
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
         }
 
+        /* ── Input display: position differs on mobile vs desktop ── */
         #inputDisplay {
             position: fixed;
-            bottom: 240px;
             left: 50%;
             transform: translateX(-50%);
             width: 85%;
@@ -118,8 +118,16 @@
             justify-content: center;
             letter-spacing: 0.1em;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            /* Default: desktop — sit near the bottom of the canvas */
+            bottom: 40px;
         }
 
+        /* On mobile (touch device) the keyboard is shown, push input up */
+        body.is-mobile #inputDisplay {
+            bottom: 240px;
+        }
+
+        /* ── On-screen keyboard ── */
         #keyboard {
             position: fixed;
             bottom: 0;
@@ -134,6 +142,33 @@
             flex-direction: column;
             gap: 10px;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
+
+            /* Hidden by default (desktop) */
+            display: none;
+        }
+
+        /* Show keyboard only on mobile */
+        body.is-mobile #keyboard {
+            display: flex;
+        }
+
+        /* Desktop hint shown only on desktop */
+        #desktopHint {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 7;
+            color: rgba(255,255,255,0.3);
+            font-size: 0.8rem;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            pointer-events: none;
+            display: block;
+        }
+
+        body.is-mobile #desktopHint {
+            display: none;
         }
 
         .keyboard-row {
@@ -244,6 +279,8 @@
 
     <div id="inputDisplay"></div>
 
+    <div id="desktopHint">Type on your keyboard · Enter to confirm · Backspace to delete</div>
+
     <div id="keyboard">
         <div class="keyboard-row">
             <div class="key" data-key="q">Q</div>
@@ -286,7 +323,18 @@
     </div>
 
     <script>
-        // Canvas setup
+        // ── Device detection ──────────────────────────────────────────────────────
+        // Use pointer coarse (touch) AND the absence of a fine pointer (mouse)
+        // as the primary signal; fall back to maxTouchPoints.
+        const isTouchDevice =
+            (window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(pointer: fine)').matches) ||
+            navigator.maxTouchPoints > 1;
+
+        if (isTouchDevice) {
+            document.body.classList.add('is-mobile');
+        }
+
+        // ── Canvas setup ──────────────────────────────────────────────────────────
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -297,7 +345,7 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
-        // Game state
+        // ── Game state ────────────────────────────────────────────────────────────
         let gameActive = false;
         let score = 0;
         let level = 1;
@@ -339,13 +387,13 @@
 
         // Difficulty settings
         const difficulties = {
-            easy: { speed: 0.4, spawnRate: 180 },
-            normal: { speed: 0.7, spawnRate: 140 },
-            hard: { speed: 1.1, spawnRate: 90 },
-            extreme: { speed: 1.9, spawnRate: 55 }
+            easy:    { speed: 0.4, spawnRate: 180 },
+            normal:  { speed: 0.7, spawnRate: 140 },
+            hard:    { speed: 1.1, spawnRate: 90  },
+            extreme: { speed: 1.9, spawnRate: 55  }
         };
 
-        // Start button
+        // ── Start button ──────────────────────────────────────────────────────────
         document.getElementById('startBtn').addEventListener('click', startNewGame);
         document.getElementById('startBtn').addEventListener('touchstart', (e) => {
             e.preventDefault();
@@ -370,7 +418,7 @@
             updateInputDisplay();
         }
 
-        // Mode selection
+        // ── Mode selection ────────────────────────────────────────────────────────
         document.querySelectorAll('.mode-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -379,7 +427,7 @@
             });
         });
 
-        // Keyboard input
+        // ── On-screen keyboard input ──────────────────────────────────────────────
         let deleteInterval = null;
         let deleteTimeout = null;
 
@@ -387,75 +435,47 @@
             const keyValue = key.dataset.key;
 
             if (keyValue === 'backspace') {
-                // Special handling for delete key - press and hold
                 key.addEventListener('mousedown', startDelete);
-                key.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    startDelete();
-                });
-
-                key.addEventListener('mouseup', stopDelete);
-                key.addEventListener('touchend', stopDelete);
+                key.addEventListener('touchstart', (e) => { e.preventDefault(); startDelete(); });
+                key.addEventListener('mouseup',    stopDelete);
+                key.addEventListener('touchend',   stopDelete);
                 key.addEventListener('mouseleave', stopDelete);
-                key.addEventListener('touchcancel', stopDelete);
+                key.addEventListener('touchcancel',stopDelete);
             } else {
-                // Normal keys
                 key.addEventListener('click', () => handleKeyPress(keyValue));
-                key.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    handleKeyPress(keyValue);
-                });
+                key.addEventListener('touchstart', (e) => { e.preventDefault(); handleKeyPress(keyValue); });
             }
         });
 
         function startDelete() {
             if (!gameActive) return;
-
-            // Immediate first delete
             handleKeyPress('backspace');
-
-            // Wait 300ms before starting continuous delete
             deleteTimeout = setTimeout(() => {
-                deleteInterval = setInterval(() => {
-                    handleKeyPress('backspace');
-                }, 100); // Delete every 100ms while holding
+                deleteInterval = setInterval(() => handleKeyPress('backspace'), 100);
             }, 300);
         }
 
         function stopDelete() {
-            if (deleteTimeout) {
-                clearTimeout(deleteTimeout);
-                deleteTimeout = null;
-            }
-            if (deleteInterval) {
-                clearInterval(deleteInterval);
-                deleteInterval = null;
-            }
+            if (deleteTimeout)  { clearTimeout(deleteTimeout);   deleteTimeout  = null; }
+            if (deleteInterval) { clearInterval(deleteInterval);  deleteInterval = null; }
         }
-        // Physical keyboard support
+
+        // ── Physical keyboard (desktop) ───────────────────────────────────────────
         document.addEventListener('keydown', (e) => {
             if (!gameActive) return;
-
-            if (e.key === 'Backspace') {
-                handleKeyPress('backspace');
-            } else if (e.key === 'Enter') {
-                handleKeyPress('enter');
-            } else if (e.key.length === 1) {
-                handleKeyPress(e.key.toLowerCase());
-            }
+            if      (e.key === 'Backspace') handleKeyPress('backspace');
+            else if (e.key === 'Enter')     handleKeyPress('enter');
+            else if (e.key.length === 1)    handleKeyPress(e.key.toLowerCase());
             e.preventDefault();
         });
 
+        // ── Input logic ───────────────────────────────────────────────────────────
         function handleKeyPress(key) {
             if (!gameActive) return;
 
-            if (key === 'backspace') {
-                currentInput = currentInput.slice(0, -1);
-            } else if (key === 'enter') {
-                checkWord();
-            } else {
-                currentInput += key;
-            }
+            if      (key === 'backspace') currentInput = currentInput.slice(0, -1);
+            else if (key === 'enter')     checkWord();
+            else                          currentInput += key;
 
             updateInputDisplay();
             checkWord();
@@ -479,58 +499,36 @@
 
                     if (score % 100 === 0) {
                         level++;
-                        if (level % 2 === 0 && maxWordLen < 25) {
-                            maxWordLen += 2;
-                        }
-                        if (level % 5 === 0) {
-                            createEnemy(true);
-                        }
+                        if (level % 2 === 0 && maxWordLen < 25) maxWordLen += 2;
+                        if (level % 5 === 0) createEnemy(true);
                     }
                     break;
                 }
             }
         }
 
-        // Enemy spawning
+        // ── Enemy spawning ────────────────────────────────────────────────────────
         function createEnemy(isBoss = false) {
-            // Only spawn from top, left, and right (not bottom to avoid keyboard area)
+            const isMobile = document.body.classList.contains('is-mobile');
+            // On mobile avoid the bottom 35% (keyboard area); desktop is fully open
+            const safeHeight = isMobile ? canvas.height * 0.65 : canvas.height;
+
             const side = Math.floor(Math.random() * 3);
             let x, y;
 
-            // Avoid spawning in bottom 35% where keyboard and input are
-            const safeHeight = canvas.height * 0.65;
-
-            if (side === 0) {
-                // Left side - only spawn in safe upper portion
-                x = 0;
-                y = Math.random() * safeHeight;
-            }
-            else if (side === 1) {
-                // Right side - only spawn in safe upper portion
-                x = canvas.width;
-                y = Math.random() * safeHeight;
-            }
-            else {
-                // Top side - full width is safe
-                x = Math.random() * canvas.width;
-                y = 0;
-            }
+            if (side === 0) { x = 0;            y = Math.random() * safeHeight; }
+            else if (side === 1) { x = canvas.width; y = Math.random() * safeHeight; }
+            else             { x = Math.random() * canvas.width; y = 0; }
 
             const validWords = vocabulary.filter(w => w.length <= maxWordLen);
-            const wordPool = validWords.length > 0 ? validWords : vocabulary.filter(w => w.length <= maxWordLen + 3);
+            const wordPool   = validWords.length > 0 ? validWords : vocabulary.filter(w => w.length <= maxWordLen + 3);
             const randomWord = wordPool[Math.floor(Math.random() * wordPool.length)];
+            const word       = isBoss ? 'BOSS-' + randomWord : randomWord;
 
-            const word = isBoss ? 'BOSS-' + randomWord : randomWord;
-
-            enemies.push({
-                word: word,
-                x: x,
-                y: y,
-                isBoss: isBoss
-            });
+            enemies.push({ word, x, y, isBoss });
         }
 
-        // Update enemies
+        // ── Update enemies ────────────────────────────────────────────────────────
         function updateEnemies() {
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
@@ -548,7 +546,7 @@
             }
         }
 
-        // Draw everything
+        // ── Drawing ───────────────────────────────────────────────────────────────
         function drawTank() {
             ctx.shadowBlur = 16;
             ctx.shadowColor = '#0A84FF';
@@ -572,7 +570,7 @@
                 ctx.font = '600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
                 const textWidth = ctx.measureText(enemy.word).width;
                 const padding = 16;
-                const width = textWidth + padding * 2;
+                const width  = textWidth + padding * 2;
                 const height = 34;
 
                 ctx.shadowBlur = 12;
@@ -596,8 +594,7 @@
         function createExplosion(x, y) {
             for (let i = 0; i < 20; i++) {
                 explosions.push({
-                    x: x,
-                    y: y,
+                    x, y,
                     vx: (Math.random() - 0.5) * 6,
                     vy: (Math.random() - 0.5) * 6,
                     life: 30,
@@ -609,14 +606,11 @@
 
         function updateExplosions() {
             for (let i = explosions.length - 1; i >= 0; i--) {
-                const particle = explosions[i];
-                particle.x += particle.vx;
-                particle.y += particle.vy;
-                particle.life--;
-
-                if (particle.life <= 0) {
-                    explosions.splice(i, 1);
-                }
+                const p = explosions[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                if (p.life <= 0) explosions.splice(i, 1);
             }
         }
 
@@ -643,14 +637,13 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        // Update UI
         function updateUI() {
             document.getElementById('scoreDisplay').textContent = score;
             document.getElementById('levelDisplay').textContent = level;
             document.getElementById('healthDisplay').textContent = health;
         }
 
-        // Game loop
+        // ── Game loop ─────────────────────────────────────────────────────────────
         function gameLoop() {
             drawBackground();
             drawTank();
