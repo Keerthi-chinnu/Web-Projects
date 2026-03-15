@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -18,7 +17,6 @@
             --system-key-active: rgba(255, 255, 255, 0.4);
             --system-red: #FF453A;
         }
-
         * {
             margin: 0;
             padding: 0;
@@ -26,7 +24,6 @@
             -webkit-tap-highlight-color: transparent;
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-
         body {
             background: var(--system-bg);
             color: var(--system-text);
@@ -36,13 +33,11 @@
             position: fixed;
             touch-action: none;
         }
-
         #gameCanvas {
             display: block;
             width: 100%;
             height: 100%;
         }
-
         /* ── Top-left panel: stats + mode selector stacked vertically ── */
         #topLeftPanel {
             position: fixed;
@@ -54,7 +49,6 @@
             gap: 0.625rem;
             align-items: flex-start;
         }
-
         #stats {
             display: flex;
             flex-direction: column;
@@ -70,19 +64,16 @@
             box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
             min-width: 130px;
         }
-
         .stat-row {
             display: flex;
             justify-content: space-between;
             gap: 1rem;
             color: rgba(255,255,255,0.55);
         }
-
         .stat-row span {
             color: var(--system-text);
             font-weight: 600;
         }
-
         #modeButtons {
             display: flex;
             flex-direction: column;
@@ -92,7 +83,6 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             width: 100%;
         }
-
         .mode-btn {
             background: transparent;
             border: none;
@@ -106,13 +96,11 @@
             text-align: left;
             transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
-
         .mode-btn.active {
             background: #636366;
             opacity: 1;
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
         }
-
         /* ── Input display: position differs on mobile vs desktop ── */
         #inputDisplay {
             position: fixed;
@@ -140,12 +128,10 @@
             /* Default: desktop — sit near the bottom of the canvas */
             bottom: 40px;
         }
-
         /* On mobile (touch device) the keyboard is shown, push input up */
         body.is-mobile #inputDisplay {
             bottom: 240px;
         }
-
         /* ── On-screen keyboard ── */
         #keyboard {
             position: fixed;
@@ -161,16 +147,13 @@
             flex-direction: column;
             gap: 10px;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
-
             /* Hidden by default (desktop) */
             display: none;
         }
-
         /* Show keyboard only on mobile */
         body.is-mobile #keyboard {
             display: flex;
         }
-
         /* Desktop hint shown only on desktop */
         #desktopHint {
             position: fixed;
@@ -185,17 +168,14 @@
             pointer-events: none;
             display: block;
         }
-
         body.is-mobile #desktopHint {
             display: none;
         }
-
         .keyboard-row {
             display: flex;
             justify-content: center;
             gap: 6px;
         }
-
         .key {
             background: var(--system-key);
             border: none;
@@ -215,11 +195,9 @@
             -webkit-user-select: none;
             transition: background 0.1s;
         }
-
         .key:active {
             background: var(--system-key-active);
         }
-
         .key.special {
             flex: 1.5;
             max-width: 60px;
@@ -227,13 +205,11 @@
             font-weight: 500;
             background: rgba(255, 255, 255, 0.12);
         }
-
         .key.space {
             flex: 4;
             max-width: 200px;
             font-size: 1rem;
         }
-
         #startScreen {
             position: fixed;
             top: 0;
@@ -249,12 +225,10 @@
             z-index: 100;
             transition: opacity 0.4s ease;
         }
-
         #startScreen.hide {
             opacity: 0;
             pointer-events: none;
         }
-
         #startBtn {
             background: var(--system-text);
             color: var(--system-bg);
@@ -267,22 +241,18 @@
             box-shadow: 0 12px 48px rgba(255, 255, 255, 0.25);
             transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s;
         }
-
         #startBtn:active {
             transform: scale(0.95);
             box-shadow: 0 4px 16px rgba(255, 255, 255, 0.15);
         }
     </style>
 </head>
-
 <body>
-
     <canvas id="gameCanvas"></canvas>
 
     <div id="startScreen">
         <button id="startBtn">START</button>
     </div>
-
     <div id="topLeftPanel">
         <div id="stats">
             <div class="stat-row">Score <span id="scoreDisplay">0</span></div>
@@ -296,11 +266,8 @@
             <button class="mode-btn" data-mode="extreme">Extreme</button>
         </div>
     </div>
-
     <div id="inputDisplay"></div>
-
     <div id="desktopHint">Type on your keyboard · Enter to confirm · Backspace to delete</div>
-
     <div id="keyboard">
         <div class="keyboard-row">
             <div class="key" data-key="q">Q</div>
@@ -341,7 +308,6 @@
             <div class="key special" data-key="enter">return</div>
         </div>
     </div>
-
     <script>
         // ── Device detection ──────────────────────────────────────────────────────
         // Use pointer coarse (touch) AND the absence of a fine pointer (mouse)
@@ -349,22 +315,18 @@
         const isTouchDevice =
             (window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(pointer: fine)').matches) ||
             navigator.maxTouchPoints > 1;
-
         if (isTouchDevice) {
             document.body.classList.add('is-mobile');
         }
-
         // ── Canvas setup ──────────────────────────────────────────────────────────
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
-
         // ── Game state ────────────────────────────────────────────────────────────
         let gameActive = false;
         let score = 0;
@@ -374,16 +336,13 @@
         let maxWordLen = 3;
         let spawnCounter = 0;
         let currentInput = '';
-
         let tank = {
             x: canvas.width / 2,
             y: canvas.height / 2,
             radius: 20
         };
-
         let enemies = [];
         let explosions = [];
-
         // Word pool
         const vocabulary = [
             "bug", "css", "app", "int", "java", "html", "code", "loop", "list", "file", "text", "user", "mode", "play", "save", "load", "exit", "menu",
@@ -404,7 +363,6 @@
             "threadexecution", "eventhandling", "errorhandling", "systemarchitecture",
             "networkprotocols", "securitypolicies", "resourceallocation", "distributedstorage"
         ];
-
         // Difficulty settings
         const difficulties = {
             easy:    { speed: 0.4, spawnRate: 180 },
@@ -412,14 +370,12 @@
             hard:    { speed: 1.1, spawnRate: 90  },
             extreme: { speed: 1.9, spawnRate: 55  }
         };
-
         // ── Start button ──────────────────────────────────────────────────────────
         document.getElementById('startBtn').addEventListener('click', startNewGame);
         document.getElementById('startBtn').addEventListener('touchstart', (e) => {
             e.preventDefault();
             startNewGame();
         });
-
         function startNewGame() {
             document.getElementById('startScreen').classList.add('hide');
             gameActive = true;
@@ -437,7 +393,6 @@
 
             updateInputDisplay();
         }
-
         // ── Mode selection ────────────────────────────────────────────────────────
         document.querySelectorAll('.mode-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -446,14 +401,11 @@
                 currentMode = btn.dataset.mode;
             });
         });
-
         // ── On-screen keyboard input ──────────────────────────────────────────────
         let deleteInterval = null;
         let deleteTimeout = null;
-
         document.querySelectorAll('.key').forEach(key => {
             const keyValue = key.dataset.key;
-
             if (keyValue === 'backspace') {
                 key.addEventListener('mousedown', startDelete);
                 key.addEventListener('touchstart', (e) => { e.preventDefault(); startDelete(); });
@@ -466,7 +418,6 @@
                 key.addEventListener('touchstart', (e) => { e.preventDefault(); handleKeyPress(keyValue); });
             }
         });
-
         function startDelete() {
             if (!gameActive) return;
             handleKeyPress('backspace');
@@ -474,12 +425,10 @@
                 deleteInterval = setInterval(() => handleKeyPress('backspace'), 100);
             }, 300);
         }
-
         function stopDelete() {
             if (deleteTimeout)  { clearTimeout(deleteTimeout);   deleteTimeout  = null; }
             if (deleteInterval) { clearInterval(deleteInterval);  deleteInterval = null; }
         }
-
         // ── Physical keyboard (desktop) ───────────────────────────────────────────
         document.addEventListener('keydown', (e) => {
             if (!gameActive) return;
@@ -488,7 +437,6 @@
             else if (e.key.length === 1)    handleKeyPress(e.key.toLowerCase());
             e.preventDefault();
         });
-
         // ── Input logic ───────────────────────────────────────────────────────────
         function handleKeyPress(key) {
             if (!gameActive) return;
@@ -500,11 +448,9 @@
             updateInputDisplay();
             checkWord();
         }
-
         function updateInputDisplay() {
             document.getElementById('inputDisplay').textContent = currentInput || '';
         }
-
         function checkWord() {
             const typed = currentInput.toLowerCase();
 
@@ -526,7 +472,6 @@
                 }
             }
         }
-
         // ── Enemy spawning ────────────────────────────────────────────────────────
         function createEnemy(isBoss = false) {
             const isMobile = document.body.classList.contains('is-mobile');
@@ -547,7 +492,6 @@
 
             enemies.push({ word, x, y, isBoss });
         }
-
         // ── Update enemies ────────────────────────────────────────────────────────
         function updateEnemies() {
             for (let i = enemies.length - 1; i >= 0; i--) {
@@ -565,7 +509,6 @@
                 }
             }
         }
-
         // ── Drawing ───────────────────────────────────────────────────────────────
         function drawTank() {
             ctx.shadowBlur = 16;
@@ -581,7 +524,6 @@
             ctx.arc(tank.x, tank.y, tank.radius * 0.35, 0, Math.PI * 2);
             ctx.fill();
         }
-
         function drawEnemies() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -610,7 +552,6 @@
                 ctx.fillText(enemy.word, enemy.x, enemy.y);
             });
         }
-
         function createExplosion(x, y) {
             for (let i = 0; i < 20; i++) {
                 explosions.push({
@@ -623,7 +564,6 @@
                 });
             }
         }
-
         function updateExplosions() {
             for (let i = explosions.length - 1; i >= 0; i--) {
                 const p = explosions[i];
@@ -633,7 +573,6 @@
                 if (p.life <= 0) explosions.splice(i, 1);
             }
         }
-
         function drawExplosions() {
             explosions.forEach(p => {
                 const alpha = p.life / p.maxLife;
@@ -648,7 +587,6 @@
                 ctx.shadowBlur = 0;
             });
         }
-
         function drawBackground() {
             const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             gradient.addColorStop(0, '#000000');
@@ -656,31 +594,26 @@
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
-
         function updateUI() {
             document.getElementById('scoreDisplay').textContent = score;
             document.getElementById('levelDisplay').textContent = level;
             document.getElementById('healthDisplay').textContent = health;
         }
-
         // ── Game loop ─────────────────────────────────────────────────────────────
         function gameLoop() {
             drawBackground();
             drawTank();
             drawEnemies();
             drawExplosions();
-
             if (gameActive) {
                 updateEnemies();
                 updateExplosions();
-
                 spawnCounter++;
                 const spawnThreshold = difficulties[currentMode].spawnRate - (level * 3);
                 if (spawnCounter >= Math.max(spawnThreshold, 30)) {
                     createEnemy();
                     spawnCounter = 0;
                 }
-
                 if (health <= 0) {
                     gameActive = false;
                     setTimeout(() => {
@@ -689,14 +622,10 @@
                     }, 100);
                 }
             }
-
             updateUI();
             requestAnimationFrame(gameLoop);
         }
-
         gameLoop();
     </script>
-
 </body>
-
 </html>
