@@ -201,11 +201,11 @@ function resetTank() {
     const mobile = isMobile();
     const pa = playArea();
     // Centre of the safe play area (excluding panel on left and keyboard on bottom)
-    const safeXMin = mobile ? pa.panelRight / 2 : 0;
-    const safeXMax = canvas.width;
     const safeYMax = pa.maxY;
-    tank.x = (safeXMin + safeXMax) / 2;
-    tank.y = safeYMax * 0.75;
+    // Mobile: true horizontal center of screen, pushed lower
+    // Desktop: center of full screen
+    tank.x = canvas.width / 2;
+    tank.y = mobile ? safeYMax * 0.85 : safeYMax * 0.75;
 }
 
 // ── Vocabulary ────────────────────────────────────────────────────────────────
